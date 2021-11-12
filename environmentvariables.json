@@ -1,0 +1,14 @@
+{
+    "dev": {
+        "TFVARS_INIT_PATH": "tfvars/backends/dev.backend.tfvars",
+        "TFVARS_PLAN_APPLY_PATH": "tfvars/environments/dev.tfvars"
+    },
+    "sit": {
+        "TFVARS_INIT_PATH": "tfvars/backends/sit.backend.tfvars",
+        "TFVARS_PLAN_APPLY_PATH": "tfvars/environments/sit.tfvars"
+    },
+    "prod": {
+        "TFVARS_INIT_PATH": "tfvars/backends/prod.backend.tfvars",
+        "TFVARS_PLAN_APPLY_PATH": "tfvars/environments/prod.tfvars"
+    }
+}
