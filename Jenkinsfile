@@ -1,24 +1,30 @@
 #!/usr/bin/env groovy
-@Library(['com.optum.jenkins.pipeline.library@master','com.optum.jenkins.pipelines.templates.terraform@master']) _
-emailContent = "MDP Terraform"
+@Library(['com.abc.jenkins.pipeline.library@master','com.abc.jenkins.pipelines.templates.terraform@master']) _
+emailContent = "asd Terraform"
 proceedToBuild = true
 
 regions = ["prod"  : [
-                    "EmailNotifyList"     : "lakshmiujwala_golla@optum.com",
+                    "EmailNotifyList"     : "lakshmiujwala_golla@abc.com",
                     "TagName"             : "prod",
-                    "ApproverList"        : "lakshmiujwala_golla@optum.com",
+                    "ApproverList"        : "lakshmiujwala_golla@abc.com",
                     "ApprovalWaitTimeUnit": "MINUTES",
                     "ApprovalWaitTime"    : 5],
             "dev"  : [
-                   "EmailNotifyList"     : "lakshmiujwala_golla@optum.com",
+                   "EmailNotifyList"     : "lakshmiujwala_golla@abc.com",
                    "TagName"             : "dev",
-                   "ApproverList"        : "lakshmiujwala_golla@optum.com",
+                   "ApproverList"        : "lakshmiujwala_golla@abc.com",
+                   "ApprovalWaitTimeUnit": "MINUTES",
+                   "ApprovalWaitTime"    : 5],
+            "stg"  : [
+                   "EmailNotifyList"     : "lakshmiujwala_golla@abc.com",
+                   "TagName"             : "stg",
+                   "ApproverList"        : "lakshmiujwala_golla@abc.com",
                    "ApprovalWaitTimeUnit": "MINUTES",
                    "ApprovalWaitTime"    : 5],
             "sit"  : [
-                   "EmailNotifyList"     : "lakshmiujwala_golla@optum.com",
+                   "EmailNotifyList"     : "lakshmiujwala_golla@abc.com",
                    "TagName"             : "sit",
-                   "ApproverList"        : "lakshmiujwala_golla@optum.com",
+                   "ApproverList"        : "lakshmiujwala_golla@abc.com",
                    "ApprovalWaitTimeUnit": "MINUTES",
                    "ApprovalWaitTime"    : 5]
 
@@ -29,8 +35,8 @@ pipeline {
         label 'docker-maven-slave'
     }
     parameters {
-        string(name: 'REPO_NAME', defaultValue: 'mdp-terraform', description: 'Terraform Repository Name')
-        choice(choices: ['prod','dev','sit'], description: 'Terraform Environment for deployment', name: 'TERRAFORM_ENVIRONMENT')
+        string(name: 'REPO_NAME', defaultValue: 'asd-terraform', description: 'Terraform Repository Name')
+        choice(choices: ['prod','dev','stg','sit'], description: 'Terraform Environment for deployment', name: 'TERRAFORM_ENVIRONMENT')
         gitParameter branchFilter: 'origin/(.*)', defaultValue: 'master', name: 'BRANCH', type: 'PT_BRANCH'
     }
     tools {
@@ -41,7 +47,7 @@ pipeline {
         stage('Git Checkout')
                 {
                     steps{
-                        git credentialsId: 'cd4cac1ad8fbc8f3016ecaced88cde357d8eb096' , url: 'https://github.optum.com/gov-prog-mdp/mdp-terraform.git' ,  branch: "${params.BRANCH}"
+                        git credentialsId: 'lgolla1' , url: 'https://github.abc.com/gov-prog-asd/asd-terraform.git' ,  branch: "${params.BRANCH}"
                     }
 
                 }
@@ -62,8 +68,13 @@ pipeline {
                         TENV = tfEnv
                         break
                     case "sit":
-                        env.TFVARS_INIT_PATH = envvariables.sit['TFVARS_INIT_PATH']
-                        env.TFVARS_PLAN_APPLY_PATH = envvariables.dev['TFVARS_PLAN_APPLY_PATH']
+                        TFVARS_INIT_PATH = envvariables.sit['TFVARS_INIT_PATH']
+                        TFVARS_PLAN_APPLY_PATH = envvariables.sit['TFVARS_PLAN_APPLY_PATH']
+                        TENV = tfEnv
+                        break
+                    case "stg":
+                        TFVARS_INIT_PATH = envvariables.stg['TFVARS_INIT_PATH']
+                        TFVARS_PLAN_APPLY_PATH = envvariables.stg['TFVARS_PLAN_APPLY_PATH']
                         TENV = tfEnv
                         break
                     case "prod":
@@ -119,7 +130,7 @@ def approvalWorkflow(region) {
             subject: "Approval Needed for " + emailContent + " Deployment - $JOB_NAME",
             to: regions[region].EmailNotifyList,
             //cc: uatEmailNotifyList,- Need to check for CC
-            from: "noreply@optum.com"
+            from: "noreply@abc.com"
 
     stage('Deployment Approval') {
         try {
@@ -138,9 +149,8 @@ def approvalWorkflow(region) {
 def terraformStep(tfStep, tfEnv)
 {
     echo "Executing Terraform Step " + tfStep + " on ${tfEnv} :"
-    //credId = "AzureServicePrincipal${tfEnv}"
-    credId = params.TERRAFORM_ENVIRONMENT == "prod" ? "gpd-mdp-prd-sp" : "gpd-mdp-sp"
-    //credId = "gpd_mdp_cont_sp"
+    credId = params.TERRAFORM_ENVIRONMENT == "prod" ? "prd-sp" : "nprd-sp"
+    
     echo "Using Credential : " + credId
     stage("Terraform $tfStep"){
         withCredentials([azureServicePrincipal(
@@ -161,6 +171,7 @@ def terraformStep(tfStep, tfEnv)
                     terraform init -backend-config="${INIT_PATH}"
                     """
                     //sh "terraform  init "
+                    //-backend-config="${INIT_PATH}"
                     break
                 case "validate":
                     echo "Executing Terraform Validate :"
@@ -177,7 +188,7 @@ def terraformStep(tfStep, tfEnv)
                 case "apply":
                     echo "Executing Terraform apply :"
                     sh """
-                    terraform apply -input=false -auto-approve -var-file="${APPLY_PATH}"
+                    terraform apply -input=false -auto-approve -var-file="${APPLY_PATH}" -var='client_id=${ARM_CLIENT_ID}' -var='client_secret=${ARM_CLIENT_SECRET}' -var='tenant_id=${ARM_TENANT_ID}'
                     """
                     break
                 default:
